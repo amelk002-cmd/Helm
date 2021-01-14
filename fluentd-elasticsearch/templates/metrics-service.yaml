@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fluentd-service
+  labels:
+    cmks.fluentd/name: fluentd-service
+spec:
+  type: ClusterIP
+  ports:
+    - name: fluentd-port
+      port: {{ .Values.port }}
+      targetPort: fluentd-port
+  selector:
+    app.kubernetes.io/name: {{ include "fluentd-elasticsearch.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}

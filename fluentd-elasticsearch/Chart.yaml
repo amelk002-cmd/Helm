@@ -1,0 +1,11 @@
+apiVersion: v2
+appVersion: 3.1.0
+description: A Fluentd Helm chart for Kubernetes with Elasticsearch output
+keywords:
+- fluentd
+- elasticsearch
+- multiline
+- detect-exceptions
+- logging
+name: ${chartName}
+version: ${chartVersion}
