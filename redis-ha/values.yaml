@@ -169,7 +169,7 @@ persistentVolume:
   # storageClass: "-"
   accessModes:
     - ReadWriteOnce
-  size: 10Gi
+  size: 100Mb
   annotations: {}
 init:
   resources: {}
