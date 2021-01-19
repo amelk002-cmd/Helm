@@ -1,0 +1,53 @@
+# Init CLuster pipeline
+# Version 0.1.0 Alpha relase
+
+name: 0.1.$(rev:r)
+trigger:
+- Development
+
+variables:
+- group: build_azure_dev
+
+stages:
+- stage: Build
+  jobs:
+      - job: ClusterInit
+        timeoutInMinutes: 10
+        pool:
+          name: Azure Pipelines
+          vmImage: 'ubuntu-latest'
+          demands: java
+        steps:
+        - task: HelmInstaller@0
+          displayName: 'Install Helm 3.4.2'
+          inputs:
+             helmVersion: 3.4.2
+             checkLatestHelmVersion: false
+
+        - task: HelmDeploy@0
+          displayName: 'Helm Initialize'
+          inputs:
+            azureSubscription: ARMConnection
+            azureResourceGroup: 'CMV3'
+            kubernetesCluster: 'CMCC'
+            command: init
+            arguments: '--client-only'
+          enabled: false
+
+
+        - task: Gradle@2
+          displayName: 'Helm Package NFS Storage Class'
+          inputs:
+            gradleWrapperFile: init/gradlew
+            workingDirectory: init
+            options: '-PbuildEnv=$(NAMESPACE) -PsetUp=$(SETUP)'
+            tasks: helmPackageNfsClientProvisionerChart
+            publishJUnitResults: false    
+
+        - task: AzureCLI@1
+          displayName: 'Helm Push  NFS Storage Class'
+          inputs:
+            azureSubscription: ARMConnection
+            scriptLocation: inlineScript
+            inlineScript: 'az acr helm push -n $(ACRNAME) $(system.defaultworkingdirectory)/init/build/helm/charts/nfs-client-provisioner-$(TAG_NAME).tgz --force'
+            

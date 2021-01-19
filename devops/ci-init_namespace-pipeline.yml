@@ -1,0 +1,141 @@
+# Init Namespace pipeline
+# Version 0.1.0 Alpha relase
+
+name: 0.1.$(rev:r)
+trigger:
+- Development
+
+variables:
+- group: build_azure_dev
+
+stages:
+- stage: Build
+  jobs:
+      - job: InitNamespace
+        timeoutInMinutes: 10
+        pool:
+          name: Azure Pipelines
+          vmImage: 'ubuntu-latest'
+          demands: java
+        steps:
+        - task: HelmInstaller@0
+          displayName: 'Install Helm 3.4.2'
+          inputs:
+             helmVersion: 3.4.2
+             checkLatestHelmVersion: false
+
+        - task: HelmDeploy@0
+          displayName: 'Helm Initialize'
+          inputs:
+            azureSubscription: ARMConnection
+            azureResourceGroup: 'CMV3'
+            kubernetesCluster: 'CMCC'
+            command: init
+            arguments: '--client-only'
+          enabled: false
+
+        - task: Gradle@2
+          displayName: 'Print Env data'
+          inputs:
+            gradleWrapperFile: init/gradlew
+            workingDirectory: init
+            options: '-PbuildEnv=$(NAMESPACE) -PsetUp=$(SETUP)'
+            tasks: printenv
+            publishJUnitResults: false
+          
+        - task: Gradle@2
+          displayName: 'Helm Package Secret'
+          inputs:
+            gradleWrapperFile: init/gradlew
+            workingDirectory: init
+            options: '-PbuildEnv=$(NAMESPACE) -PsetUp=$(SETUP)'
+            tasks: helmPackageSecretChart
+            publishJUnitResults: false
+
+        - task: AzureCLI@1
+          displayName: 'Helm Push Secret'
+          inputs:
+            azureSubscription: ARMConnection
+            scriptLocation: inlineScript
+            inlineScript: 'az acr helm push -n $(DOCKER_USER) $(system.defaultworkingdirectory)/init/build/helm/charts/secret-$(TAG_NAME).tgz --force'
+
+        - task: Gradle@2
+          displayName: 'Helm Package Ingress'
+          inputs:
+              gradleWrapperFile: init/gradlew
+              workingDirectory: init
+              options: '-PbuildEnv=$(NAMESPACE) -PsetUp=$(SETUP)'
+              tasks: helmPackageIngressChart
+              publishJUnitResults: false
+        
+        - task: AzureCLI@1
+          displayName: 'Helm Push Ingress'
+          inputs:
+            azureSubscription: ARMConnection
+            scriptLocation: inlineScript
+            inlineScript: 'az acr helm push -n $(DOCKER_USER) $(system.defaultworkingdirectory)/init/build/helm/charts/ingress-$(TAG_NAME).tgz --force'
+
+
+        - task: Gradle@2
+          displayName: 'Helm Package Persistent Volume'
+          inputs:
+            gradleWrapperFile: init/gradlew
+            workingDirectory: init
+            options: '-PbuildEnv=$(NAMESPACE) -PsetUp=$(SETUP)'
+            tasks: helmPackagePersistentVolumeChart
+            publishJUnitResults: false
+
+        - task: AzureCLI@1
+          displayName: 'Helm Push Persistent Volume'
+          inputs:
+            azureSubscription: ARMConnection
+            scriptLocation: inlineScript
+            inlineScript: 'az acr helm push -n $(DOCKER_USER) $(system.defaultworkingdirectory)/init/build/helm/charts/pv-$(TAG_NAME).tgz --force'
+
+        - task: Gradle@2
+          displayName: 'Helm Package Redis-HA-Cache'
+          inputs:
+            gradleWrapperFile: init/gradlew
+            workingDirectory: init
+            options: '-PbuildEnv=$(NAMESPACE) -PsetUp=$(SETUP)'
+            tasks: helmPackageRedisCacheChart
+            publishJUnitResults: false
+      
+        - task: AzureCLI@1
+          displayName: 'Helm Push Redis HA Cache'
+          inputs:
+            azureSubscription: ARMConnection
+            scriptLocation: inlineScript
+            inlineScript: 'az acr helm push -n $(DOCKER_USER) $(system.defaultworkingdirectory)/init/build/helm/charts/redis-ha-cache-$(TAG_NAME).tgz --force'
+
+        - task: Gradle@2
+          displayName: 'Helm Package Redis-HA-Persist'
+          inputs:
+            gradleWrapperFile: init/gradlew
+            workingDirectory: init
+            options: '-PbuildEnv=$(NAMESPACE) -PsetUp=$(SETUP)'
+            tasks: helmPackageRedisPersistChart
+            publishJUnitResults: false       
+
+        - task: AzureCLI@1
+          displayName: 'Helm Push Redis HA Persist'
+          inputs:
+            azureSubscription: ARMConnection
+            scriptLocation: inlineScript
+            inlineScript: 'az acr helm push -n $(DOCKER_USER) $(system.defaultworkingdirectory)/init/build/helm/charts/redis-ha-persist-$(TAG_NAME).tgz --force'
+
+        - task: Gradle@2
+          displayName: 'Helm Package Fluentd'
+          inputs:
+            gradleWrapperFile: fluentd/gradlew
+            workingDirectory: fluentd
+            options: '-PbuildEnv=$(NAMESPACE) -PsetUp=$(SETUP)'
+            tasks: helmPackage
+            publishJUnitResults: false
+
+        - task: AzureCLI@1
+          displayName: 'Helm Push Fluentd'
+          inputs:
+            azureSubscription: ARMConnection
+            scriptLocation: inlineScript
+            inlineScript: 'az acr helm push -n $(DOCKER_USER) $(system.defaultworkingdirectory)/fluentd/build/helm/charts/fluentd-elasticsearch-$(TAG_NAME).tgz --force'3.4.2
